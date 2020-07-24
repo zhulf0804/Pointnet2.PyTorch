@@ -8,11 +8,12 @@ def fps(xyz, M):
     :param xyz: shape=(B, N, 3)
     :return: inds: shape=(B, M)
     '''
+    device = xyz.device
     B, N, C = xyz.shape
-    centroids = torch.zeros(size=(B, M), dtype=torch.long)
-    dists = torch.ones(B, N) * 1e5
-    inds = torch.randint(0, N, size=(B, )).long()
-    batchlists = torch.arange(0, B)
+    centroids = torch.zeros(size=(B, M), dtype=torch.long).to(device)
+    dists = torch.ones(B, N).to(device) * 1e5
+    inds = torch.randint(0, N, size=(B, ), dtype=torch.long).to(device)
+    batchlists = torch.arange(0, B, dtype=torch.long).to(device)
     for i in range(M):
         centroids[:, i] = inds
         cur_point = xyz[batchlists, inds, :] # (B, 3)

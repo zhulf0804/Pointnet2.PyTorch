@@ -11,9 +11,10 @@ def ball_query(xyz, new_xyz, radius, K):
     :param K: int, an upper limit samples
     :return: shape=(B, M, K)
     '''
+    device = xyz.device
     B, N, C = xyz.shape
     M = new_xyz.shape[1]
-    grouped_inds = torch.arange(0, N).long().view(1, 1, N).repeat(B, M, 1)
+    grouped_inds = torch.arange(0, N, dtype=torch.long).to(device).view(1, 1, N).repeat(B, M, 1)
     dists = get_dists(new_xyz, xyz)
     grouped_inds[dists > radius] = N
     grouped_inds = torch.sort(grouped_inds, dim=-1)[0][:, :, :K]
