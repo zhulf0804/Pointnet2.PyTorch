@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import sys
+sys.path.append('/root/code/PointNet2.PyTorch')
 from utils.sampling import fps
 from utils.grouping import ball_query
 from utils.common import gather_points
@@ -34,7 +36,8 @@ def sample_and_group(xyz, points, M, radius, K, use_xyz=True):
     :param radius:float
     :param K: int
     :param use_xyz: bool, if True concat XYZ with local point features, otherwise just use point features
-    :return: new_points, shape=(B, M, K, C)
+    :return: new_xyz, shape=(B, M, 3); new_points, shape=(B, M, K, C+3);
+             group_inds, shape=(B, M, K); grouped_xyz, shape=(B, M, K, 3)
     '''
     new_xyz = gather_points(xyz, fps(xyz, M))
     grouped_inds = ball_query(xyz, new_xyz, radius, K)
@@ -52,6 +55,14 @@ def sample_and_group(xyz, points, M, radius, K, use_xyz=True):
 
 
 def sample_and_group_all(xyz, points, use_xyz=True):
+    '''
+
+    :param xyz: shape=(B, M, 3)
+    :param points: shape=(B, M, C)
+    :param use_xyz:
+    :return: new_xyz, shape=(B, 1, 3); new_points, shape=(B, 1, M, C+3);
+             group_inds, shape=(B, 1, M); grouped_xyz, shape=(B, 1, M, 3)
+    '''
     B, M, C = xyz.shape
     new_xyz = torch.zeros(B, 1, C)
     grouped_inds = torch.arange(0, M).long().view(1, 1, M).repeat(B, 1, 1)
@@ -95,7 +106,7 @@ class PointNet_SA_Module(nn.Module):
         for i, out_channels in enumerate(mlp):
             self.backbone.add_module('Conv{}'.format(i),
                                      nn.Conv2d(in_channels, out_channels, 1,
-                                               stride=1, padding=0, bias=False))
+                                               stride=1, padding=0, bias=True))
             if bn:
                 self.backbone.add_module('Bn{}'.format(i),
                                          nn.BatchNorm2d(out_channels))
@@ -133,19 +144,17 @@ def pointnet_sa_module_msg(xyz, points, M, radius_list, K_list, in_channels, mlp
 
 
 if __name__ == '__main__':
-    import sys
-    sys.path.append('/root/code/PointNet2.PyTorch')
     def setup_seed(seed):
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
     setup_seed(2)
-    xyz = torch.randn(4, 100, 3)
-    points = torch.randn(4, 100, 3)
+    xyz = torch.randn(4, 1024, 3)
+    points = torch.randn(4, 1024, 3)
 
     M, radius, K = 5, 5, 6
-    new_xyz, new_points, grouped_inds, grouped_xyz = sample_and_group_all(xyz, points)
-    print(new_xyz)
-    print(new_points)
+    new_xyz, new_points, grouped_inds, grouped_xyz = sample_and_group(xyz, points, M, radius, K)
+    print(new_xyz[0])
+    print(new_points[0])
     '''
     print('='*20, 'backbone', '='*20)
     M, radius, K, in_channels, mlp = 2, 0.2, 3, 6, [32, 64, 128]

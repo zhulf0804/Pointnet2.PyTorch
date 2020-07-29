@@ -81,9 +81,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_root', type=str, default='/root/modelnet40_normal_resampled',
                         help='the root to the dataset')
-    parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
     parser.add_argument('--nclasses', type=int, default=40, help='Number of classes')
-    parser.add_argument('--init_lr', type=float, default=0.001, help='Initial learing rate')
+    parser.add_argument('--init_lr', type=float, default=0.01, help='Initial learing rate')
     parser.add_argument('--momentum', type=float, default=0.9, help='Initial learing rate')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='Initial learing rate')
     parser.add_argument('--nepoches', type=int, default=251, help='Number of traing epoches')
@@ -100,7 +100,8 @@ if __name__ == '__main__':
     device = torch.device('cuda')
     model = pointnet2_cls_ssg(6, args.nclasses).to(device)
     loss = cls_loss().to(device)
-    #optimizer = torch.optim.SGD(model.parameters(), lr=args.init_lr, momentum=args.momentum)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.init_lr, momentum=args.momentum)
+    '''
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=args.init_lr,
@@ -108,6 +109,7 @@ if __name__ == '__main__':
         eps=1e-08,
         weight_decay=args.decay_rate
     )
+    '''
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
     train(train_loader=train_loader,
           test_loader=test_loader,

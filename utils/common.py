@@ -14,6 +14,7 @@ def get_dists(points1, points2):
     dists = torch.sum(torch.pow(points1, 2), dim=-1).view(B, M, 1) + \
             torch.sum(torch.pow(points2, 2), dim=-1).view(B, 1, N)
     dists -= 2 * torch.matmul(points1, points2.permute(0, 2, 1))
+    dists = torch.where(dists < 0, torch.ones_like(dists) * 1e-7, dists) # Very Important for dist = 0.
     return torch.sqrt(dists).float()
 
 
