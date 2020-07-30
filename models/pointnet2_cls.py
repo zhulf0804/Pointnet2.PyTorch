@@ -12,12 +12,12 @@ class pointnet2_cls_ssg(nn.Module):
         self.pt_sa1 = PointNet_SA_Module(M=512, radius=0.2, K=32, in_channels=in_channels, mlp=[64, 64, 128], group_all=False)
         self.pt_sa2 = PointNet_SA_Module(M=128, radius=0.4, K=64, in_channels=131, mlp=[128, 128, 256], group_all=False)
         self.pt_sa3 = PointNet_SA_Module(M=None, radius=None, K=None, in_channels=259, mlp=[256, 512, 1024], group_all=True)
-        self.fc1 = nn.Linear(1024, 512, bias=True)
+        self.fc1 = nn.Linear(1024, 512, bias=False)
         self.bn1 = nn.BatchNorm1d(512)
-        self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(512, 256, bias=True)
+        self.dropout1 = nn.Dropout(0.5)
+        self.fc2 = nn.Linear(512, 256, bias=False)
         self.bn2 = nn.BatchNorm1d(256)
-        self.dropout2 = nn.Dropout(0.3)
+        self.dropout2 = nn.Dropout(0.5)
         self.cls = nn.Linear(256, nclasses)
 
     def forward(self, xyz, points):

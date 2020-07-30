@@ -7,7 +7,7 @@ from utils.common import pc_normalize
 
 class ModelNet40(Dataset):
 
-    def __init__(self, data_root, split, npoints=512, normalize=True):
+    def __init__(self, data_root, split, npoints, normalize=True):
         assert(split == 'train' or split == 'test')
         self.npoints = npoints
         self.normalize = normalize

@@ -106,7 +106,7 @@ class PointNet_SA_Module(nn.Module):
         for i, out_channels in enumerate(mlp):
             self.backbone.add_module('Conv{}'.format(i),
                                      nn.Conv2d(in_channels, out_channels, 1,
-                                               stride=1, padding=0, bias=True))
+                                               stride=1, padding=0, bias=False))
             if bn:
                 self.backbone.add_module('Bn{}'.format(i),
                                          nn.BatchNorm2d(out_channels))
