@@ -33,11 +33,3 @@ def gather_points(points, inds):
     repeat_shape[0] = 1
     batchlists = torch.arange(0, B, dtype=torch.long).to(device).reshape(inds_shape).repeat(repeat_shape)
     return points[batchlists, inds, :]
-
-
-def pc_normalize(xyz):
-    mean = np.mean(xyz, axis=0)
-    xyz -= mean
-    m = np.max(np.sqrt(np.sum(np.power(xyz, 2), axis=1)))
-    xyz /= m
-    return xyz

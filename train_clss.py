@@ -1,28 +1,14 @@
 import argparse
+import importlib
 import numpy as np
 import os
 import time
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from models.pointnet2_cls import pointnet2_cls_ssg, cls_loss
+from models.pointnet2_cls import pointnet2_cls_ssg, pointnet2_cls_msg, cls_loss
 from data.ModelNet40 import ModelNet40
 
-torch.backends.cudnn.enabled = False  # why need ?
-'''
-Traceback (most recent call last):
-  File "train_clss.py", line 108, in <module>
-    checkpoint_dir=args.checkpoint_dir
-  File "train_clss.py", line 57, in train
-    loss, total_correct, total_seen, acc = train_one_epoch(train_loader, model, loss_func, optimizer, device)
-  File "train_clss.py", line 19, in train_one_epoch
-    loss.backward()
-  File "/root/miniconda3/lib/python3.7/site-packages/torch/tensor.py", line 195, in backward
-    torch.autograd.backward(self, gradient, retain_graph, create_graph)
-  File "/root/miniconda3/lib/python3.7/site-packages/torch/autograd/__init__.py", line 99, in backward
-    allow_unreachable=True)  # allow_unreachable flag
-RuntimeError: cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.
-'''
 
 def train_one_epoch(train_loader, model, loss_func, optimizer, device):
     losses, total_seen, total_correct = [], 0, 0
@@ -91,11 +77,17 @@ def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, dev
 
 
 if __name__ == '__main__':
+    Models = {
+        'pointnet2_cls_ssg': pointnet2_cls_ssg,
+        'pointnet2_cls_msg': pointnet2_cls_msg
+    }
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_root', type=str, required=True, help='Root to the dataset')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--npoints', type=int, default=4096, help='Number of the training points')
     parser.add_argument('--nclasses', type=int, default=40, help='Number of classes')
+    parser.add_argument('--model', type=str, default='pointnet2_cls_msg', help='Model name')
+    parser.add_argument('--device_ids', type=str, default='0', help='Cuda ids')
     parser.add_argument('--lr', type=float, default=0.001, help='Initial learing rate')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='Initial learing rate')
     parser.add_argument('--nepoches', type=int, default=251, help='Number of traing epoches')
@@ -106,12 +98,17 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint_interval', type=int, default=10, help='Checkpoint saved interval')
     args = parser.parse_args()
 
-    modelnet40_train = ModelNet40(data_root=args.data_root, split='train', npoints=args.npoints)
+    modelnet40_train = ModelNet40(data_root=args.data_root, split='train', npoints=args.npoints, augment=True)
     modelnet40_test = ModelNet40(data_root=args.data_root, split='test', npoints=args.npoints)
     train_loader = DataLoader(dataset=modelnet40_train, batch_size=args.batch_size, shuffle=True, num_workers=4)
     test_loader = DataLoader(dataset=modelnet40_test, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    device = torch.device('cuda')
-    model = pointnet2_cls_ssg(6, args.nclasses).to(device)
+    Model = Models[args.model]
+    model = Model(6, args.nclasses)
+    device_ids = list(map(int, args.device_ids.strip().split(','))) if ',' in args.device_ids else [int(device_ids)]
+    if len(device_ids) > 1:
+        model = nn.DataParallel(model, device_ids=device_ids)
+    device = torch.device('cuda:{}'.format(device_ids[0]))
+    model = model.to(device)
     loss = cls_loss().to(device)
     #optimizer = torch.optim.SGD(model.parameters(), lr=args.init_lr, momentum=args.momentum)
     optimizer = torch.optim.Adam(

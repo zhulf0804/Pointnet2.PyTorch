@@ -122,13 +122,69 @@ class PointNet_SA_Module(nn.Module):
                                                                               radius=self.radius,
                                                                               K=self.K,
                                                                               use_xyz=self.use_xyz)
-        new_points = self.backbone(new_points.permute(0, 3, 2, 1))
+        new_points = self.backbone(new_points.permute(0, 3, 2, 1).contiguous())
         if self.pooling == 'avg':
             new_points = torch.mean(new_points, dim=2)
         else:
             new_points = torch.max(new_points, dim=2)[0]
-        new_points = new_points.permute(0, 2, 1)
-        return new_xyz, new_points, grouped_inds
+        new_points = new_points.permute(0, 2, 1).contiguous()
+        return new_xyz, new_points
+
+
+class PointNet_SA_Module_MSG(nn.Module):
+    def __init__(self, M, radiuses, Ks, in_channels, mlps, bn=True, pooling='max', use_xyz=True):
+        super(PointNet_SA_Module_MSG, self).__init__()
+        self.M = M
+        self.radiuses = radiuses
+        self.Ks = Ks
+        self.in_channels = in_channels
+        self.mlps = mlps
+        self.bn = bn
+        self.pooling = pooling
+        self.use_xyz = use_xyz
+        self.backbones = nn.ModuleList()
+        for j in range(len(mlps)):
+            mlp = mlps[j]
+            backbone = nn.Sequential()
+            in_channels = self.in_channels
+            for i, out_channels in enumerate(mlp):
+                backbone.add_module('Conv{}_{}'.format(j, i),
+                                         nn.Conv2d(in_channels, out_channels, 1,
+                                                   stride=1, padding=0, bias=False))
+                if bn:
+                    backbone.add_module('Bn{}_{}'.format(j, i),
+                                             nn.BatchNorm2d(out_channels))
+                backbone.add_module('Relu{}_{}'.format(j, i), nn.ReLU())
+                in_channels = out_channels
+            self.backbones.append(backbone)
+
+    def forward(self, xyz, points):
+        new_xyz = gather_points(xyz, fps(xyz, self.M))
+        new_points_all = []
+        for i in range(len(self.mlps)):
+            radius = self.radiuses[i]
+            K = self.Ks[i]
+            grouped_inds = ball_query(xyz, new_xyz, radius, K)
+            grouped_xyz = gather_points(xyz, grouped_inds)
+            grouped_xyz -= torch.unsqueeze(new_xyz, 2).repeat(1, 1, K, 1)
+            if points is not None:
+                grouped_points = gather_points(points, grouped_inds)
+                if self.use_xyz:
+                    new_points = torch.cat(
+                        (grouped_xyz.float(), grouped_points.float()),
+                        dim=-1)
+                else:
+                    new_points = grouped_points
+            else:
+                new_points = grouped_xyz
+            new_points = self.backbones[i](new_points.permute(0, 3, 2, 1).contiguous())
+            if self.pooling == 'avg':
+                new_points = torch.mean(new_points, dim=2)
+            else:
+                new_points = torch.max(new_points, dim=2)[0]
+            new_points = new_points.permute(0, 2, 1).contiguous()
+            new_points_all.append(new_points)
+        return new_xyz, torch.cat(new_points_all, dim=-1)
 
 
 def pointnet_sa_module_msg(xyz, points, M, radius_list, K_list, in_channels, mlp_list, bn=True, pooling='max', use_xyz=True):

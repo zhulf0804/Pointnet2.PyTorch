@@ -2,14 +2,16 @@ import numpy as np
 import os
 import torch
 from torch.utils.data import DataLoader, Dataset
-from utils.common import pc_normalize
+from data.provider import pc_normalize, rotate_point_cloud_with_normal, rotate_perturbation_point_cloud_with_normal, \
+    random_scale_point_cloud, shift_point_cloud, jitter_point_cloud, shuffle_points
 
 
 class ModelNet40(Dataset):
 
-    def __init__(self, data_root, split, npoints, normalize=True):
+    def __init__(self, data_root, split, npoints, augment=False, normalize=True):
         assert(split == 'train' or split == 'test')
         self.npoints = npoints
+        self.augment = augment
         self.normalize = normalize
 
         cls2name, name2cls = self.decode_classes(os.path.join(data_root, 'modelnet40_shape_names.txt'))
@@ -38,6 +40,15 @@ class ModelNet40(Dataset):
                 name2cls[name.strip()] = i
         return cls2name, name2cls
 
+    def augment_pc(self, pc_normal):
+        rotated_pc_normal = rotate_point_cloud_with_normal(pc_normal)
+        rotated_pc_normal = rotate_perturbation_point_cloud_with_normal(rotated_pc_normal)
+        jittered_pc = random_scale_point_cloud(rotated_pc_normal[:, :3])
+        jittered_pc = shift_point_cloud(jittered_pc)
+        jittered_pc = jitter_point_cloud(jittered_pc)
+        rotated_pc_normal[:, :3] = jittered_pc
+        return rotated_pc_normal
+
     def __getitem__(self, index):
         if index in self.caches:
             return self.caches[index]
@@ -49,6 +60,8 @@ class ModelNet40(Dataset):
         xyz_points = xyz_points[:self.npoints, :]
         if self.normalize:
             xyz_points[:, :3] = pc_normalize(xyz_points[:, :3])
+        if self.augment:
+            xyz_points = self.augment_pc(xyz_points)
         self.caches[index] = [xyz_points, label]
         return xyz_points, label
 

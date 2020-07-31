@@ -17,20 +17,23 @@ Point Sets in a Metric Space]()[NIPS 2017].
     - Evaluate
     
         ```
-        python evaluate.py evaluate_cls model data_root checkpoint
+        python evaluate.py evaluate_cls model data_root checkpoint npoints
         
         eg.
-        python evaluate.py evaluate_cls pointnet2_cls_ssg /root/modelnet40_normal_resampled checkpoints/pointnet2_cls_200.pth
-        python evaluate.py evaluate_cls pointnet2_cls_msg /root/modelnet40_normal_resampled checkpoints/pointnet2_cls_200.pth
+        python evaluate.py evaluate_cls pointnet2_cls_ssg /root/modelnet40_normal_resampled checkpoints/pointnet2_cls_200.pth 4096
+        python evaluate.py evaluate_cls pointnet2_cls_msg /root/modelnet40_normal_resampled checkpoints/pointnet2_cls_200.pth 4096
         ```
-- **Performance**(the *first row* is the results repored in Paper, the *following rows* are results reported from this repo.)
+- **Performance**(the **first row** is the results reported in Paper, the **following rows** are results reported from this repo.)
 
     | Model | NPoints | Aug | DP | Accuracy(%) |
     | :---: | :---: | :--- : | :---: | :---: |
-    | PointNet2(**official**) |  | ✓ | | 91.7 |
-    | PointNet2_SSG | | ✗ | | 90.5 |
-    | PointNet2_SSG | 4096 | ✗ | ✗ |  |
-    | PointNet2_MSG | 1024 | ✗ | ✗ |  |
+    | PointNet2(**official**) | 5000 | ✓ | | 91.7 |
+    | PointNet2_SSG | 1024 | ✗ | ✗ | 91.8 |
+    | PointNet2_SSG | 4096 | ✗ | ✗ | 91.7 |
+    | PointNet2_SSG | 4096 | ✓ | ✗ |  |
+    | PointNet2_SSG | 4096 | ✓ | ✓ |  |
+    | PointNet2_MSG | 4096 | ✓ | ✗ |  |
+    | PointNet2_MSG | 4096 | ✓ | ✓ |  |
 
 
 ## Part Segmentation
