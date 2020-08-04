@@ -3,6 +3,8 @@
 An unofficial PyTorch Implementation of [PointNet++: Deep Hierarchical Feature Learning on
 Point Sets in a Metric Space]()[NIPS 2017].
 
+### Requirements
+- PyTorch, Python3, TensorboardX, tqdm, fire
 
 ## Classification
 - **Start**
@@ -12,7 +14,7 @@ Point Sets in a Metric Space]()[NIPS 2017].
         python train_clss.py --data_root your_data_root --log_dir your_log_dir
 
         eg.
-        python train_clss.py --data_root /root/modelnet40_normal_resampled --npoints 1024 --log_dir cls_ssg_1024
+        python train_clss.py --data_root /root/modelnet40_normal_resampled  --log_dir cls_ssg_1024
         ```
     - Evaluate
     
@@ -25,15 +27,20 @@ Point Sets in a Metric Space]()[NIPS 2017].
         ```
 - **Performance**(the **first row** is the results reported in Paper, the **following rows** are results reported from this repo.)
 
-    | Model | NPoints | Aug | DP | Accuracy(%) |
-    | :---: | :---: | :--- : | :---: | :---: |
-    | PointNet2(**official**) | 5000 | ✓ | | 91.7 |
-    | PointNet2_SSG | 1024 | ✗ | ✗ | 91.8 |
-    | PointNet2_SSG | 4096 | ✗ | ✗ | 91.7 |
-    | PointNet2_SSG | 4096 | ✓ | ✗ |  |
-    | PointNet2_SSG | 4096 | ✓ | ✓ |  |
-    | PointNet2_MSG | 4096 | ✓ | ✗ |  |
-    | PointNet2_MSG | 4096 | ✓ | ✓ |  |
+    | Model | NPoints | Aug | Accuracy(%) |
+    | :---: | :---: | :---: | :---: |
+    | PointNet2(**official**) | 5000 | ✓ | 91.7 |
+    | PointNet2_SSG | 1024 | ✗ | **91.8** |
+    | PointNet2_SSG | 4096 | ✗ | 91.7 |
+    | PointNet2_SSG | 4096 | ✓ | 90.5 |
+    | PointNet2_MSG | 4096 | ✓ | 91.0 |
+    
+    | Model | Train_NPoints | DP | Test_NPoints | Accuracy(%) |
+    | :---: | :---: | :---: | :---: | :---: |
+    | PointNet2_SSG | 1024 | ✗ | 256 | 70.4 |
+    | PointNet2_SSG | 1024 | ✓ | 256 |  |
+    | PointNet2_SSG | 1024 | ✗ | 1024 | 91.8 |
+    | PointNet2_SSG | 1024 | ✓ | 1204 |  |
 
 
 ## Part Segmentation
@@ -43,3 +50,7 @@ Point Sets in a Metric Space]()[NIPS 2017].
 - Performance
 
 ## Reference
+
+- [https://github.com/charlesq34/pointnet2](https://github.com/charlesq34/pointnet2)
+- [https://github.com/yanx27/Pointnet_Pointnet2_pytorch](https://github.com/yanx27/Pointnet_Pointnet2_pytorch)
+- [https://github.com/sshaoshuai/Pointnet2.PyTorch](https://github.com/sshaoshuai/Pointnet2.PyTorch)

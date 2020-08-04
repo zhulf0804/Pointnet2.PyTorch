@@ -3,15 +3,16 @@ import os
 import torch
 from torch.utils.data import DataLoader, Dataset
 from data.provider import pc_normalize, rotate_point_cloud_with_normal, rotate_perturbation_point_cloud_with_normal, \
-    random_scale_point_cloud, shift_point_cloud, jitter_point_cloud, shuffle_points
+    random_scale_point_cloud, shift_point_cloud, jitter_point_cloud, shuffle_points, random_point_dropout
 
 
 class ModelNet40(Dataset):
 
-    def __init__(self, data_root, split, npoints, augment=False, normalize=True):
+    def __init__(self, data_root, split, npoints, augment=False, dp=False, normalize=True):
         assert(split == 'train' or split == 'test')
         self.npoints = npoints
         self.augment = augment
+        self.dp = dp
         self.normalize = normalize
 
         cls2name, name2cls = self.decode_classes(os.path.join(data_root, 'modelnet40_shape_names.txt'))
@@ -62,6 +63,8 @@ class ModelNet40(Dataset):
             xyz_points[:, :3] = pc_normalize(xyz_points[:, :3])
         if self.augment:
             xyz_points = self.augment_pc(xyz_points)
+        if self.dp:
+            xyz_points = random_point_dropout(xyz_points)
         self.caches[index] = [xyz_points, label]
         return xyz_points, label
 

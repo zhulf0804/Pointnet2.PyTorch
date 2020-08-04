@@ -1,16 +1,18 @@
 import fire
 import numpy as np
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from models.pointnet2_cls import pointnet2_cls_ssg, cls_loss
+from models.pointnet2_cls import pointnet2_cls_ssg, pointnet2_cls_msg
 from data.ModelNet40 import ModelNet40
 
 
 def evaluate_cls(model_id, data_root, checkpoint, npoints, dims=6, nclasses=40):
     print('Loading..')
     Models = {
-        'pointnet2_cls_ssg': pointnet2_cls_ssg
+        'pointnet2_cls_ssg': pointnet2_cls_ssg,
+        'pointnet2_cls_msg': pointnet2_cls_msg
     }
     Model = Models[model_id]
     modelnet40_test = ModelNet40(data_root=data_root, split='test', npoints=npoints)
@@ -18,7 +20,8 @@ def evaluate_cls(model_id, data_root, checkpoint, npoints, dims=6, nclasses=40):
                              batch_size=64, shuffle=False,
                              num_workers=1)
     device = torch.device('cuda')
-    model = Model(dims, nclasses).to(device)
+    model = Model(dims, nclasses)
+    model = model.to(device)
     model.load_state_dict(torch.load(checkpoint))
     model.eval()
     print('Loading {} completed'.format(checkpoint))

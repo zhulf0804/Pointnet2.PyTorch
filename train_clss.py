@@ -1,9 +1,9 @@
 import argparse
-import importlib
 import numpy as np
 import os
 import time
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from models.pointnet2_cls import pointnet2_cls_ssg, pointnet2_cls_msg, cls_loss
@@ -44,7 +44,7 @@ def test_one_epoch(test_loader, model, loss_func, device):
     return np.mean(losses), total_correct, total_seen, total_correct / float(total_seen)
 
 
-def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, device, nepoches, log_interval, log_dir, checkpoint_interval):
+def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, device, ngpus, nepoches, log_interval, log_dir, checkpoint_interval):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     checkpoint_dir = os.path.join(log_dir, 'checkpoints')
@@ -57,12 +57,14 @@ def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, dev
 
     for epoch in range(nepoches):
         if epoch % checkpoint_interval == 0:
-            torch.save(model.state_dict(), os.path.join(checkpoint_dir, "pointnet2_cls_%d.pth" % epoch))
+            if ngpus > 1:
+                torch.save(model.module.state_dict(), os.path.join(checkpoint_dir, "pointnet2_cls_%d.pth" % epoch))
+            else:
+                torch.save(model.state_dict(), os.path.join(checkpoint_dir, "pointnet2_cls_%d.pth" % epoch))
             model.eval()
             lr = optimizer.state_dict()['param_groups'][0]['lr']
-            print('=' * 20, 'Test Epoch {} / {}, lr: {}'.format(epoch, nepoches, lr), '=' * 20)
             loss, total_correct, total_seen, acc = test_one_epoch(test_loader, model, loss_func, device)
-            print('Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(loss, total_correct, total_seen, acc))
+            print('Test Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, total_correct, total_seen, acc))
             writer.add_scalar('test loss', loss, epoch)
             writer.add_scalar('test acc', acc, epoch)
         model.train()
@@ -71,8 +73,7 @@ def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, dev
         writer.add_scalar('train acc', acc, epoch)
         if epoch % log_interval == 0:
             lr = optimizer.state_dict()['param_groups'][0]['lr']
-            print('=' * 20, 'Train Epoch {} / {}, lr: {}'.format(epoch, nepoches, lr), '=' * 20)
-            print('Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(loss, total_correct, total_seen, acc))
+            print('Train Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, total_correct, total_seen, acc))
         scheduler.step()
 
 
@@ -84,10 +85,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_root', type=str, required=True, help='Root to the dataset')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
-    parser.add_argument('--npoints', type=int, default=4096, help='Number of the training points')
+    parser.add_argument('--npoints', type=int, default=1024, help='Number of the training points')
     parser.add_argument('--nclasses', type=int, default=40, help='Number of classes')
-    parser.add_argument('--model', type=str, default='pointnet2_cls_msg', help='Model name')
-    parser.add_argument('--device_ids', type=str, default='0', help='Cuda ids')
+    parser.add_argument('--augment', type=bool, default=False, help='Augment the train data')
+    parser.add_argument('--dp', type=bool, default=False, help='Random input dropout during training')
+    parser.add_argument('--model', type=str, default='pointnet2_cls_ssg', help='Model name')
+    parser.add_argument('--gpus', type=str, default='0', help='Cuda ids')
     parser.add_argument('--lr', type=float, default=0.001, help='Initial learing rate')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='Initial learing rate')
     parser.add_argument('--nepoches', type=int, default=251, help='Number of traing epoches')
@@ -97,18 +100,24 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str, required=True, help='Train/val loss and accuracy logs')
     parser.add_argument('--checkpoint_interval', type=int, default=10, help='Checkpoint saved interval')
     args = parser.parse_args()
+    print(args)
 
-    modelnet40_train = ModelNet40(data_root=args.data_root, split='train', npoints=args.npoints, augment=True)
+    device_ids = list(map(int, args.gpus.strip().split(','))) if ',' in args.gpus else [int(args.gpus)]
+    ngpus = len(device_ids)
+
+    modelnet40_train = ModelNet40(data_root=args.data_root, split='train', npoints=args.npoints, augment=args.augment, dp=args.dp)
     modelnet40_test = ModelNet40(data_root=args.data_root, split='test', npoints=args.npoints)
-    train_loader = DataLoader(dataset=modelnet40_train, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    test_loader = DataLoader(dataset=modelnet40_test, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(dataset=modelnet40_train, batch_size=args.batch_size // ngpus, shuffle=True, num_workers=4)
+    test_loader = DataLoader(dataset=modelnet40_test, batch_size=args.batch_size // ngpus, shuffle=False, num_workers=4)
+
     Model = Models[args.model]
     model = Model(6, args.nclasses)
-    device_ids = list(map(int, args.device_ids.strip().split(','))) if ',' in args.device_ids else [int(device_ids)]
-    if len(device_ids) > 1:
+    # Mutli-gpus
+    device = torch.device("cuda:{}".format(device_ids[0]) if torch.cuda.is_available() else "cpu")
+    if ngpus > 1 and torch.cuda.device_count() > 1:
         model = nn.DataParallel(model, device_ids=device_ids)
-    device = torch.device('cuda:{}'.format(device_ids[0]))
     model = model.to(device)
+
     loss = cls_loss().to(device)
     #optimizer = torch.optim.SGD(model.parameters(), lr=args.init_lr, momentum=args.momentum)
     optimizer = torch.optim.Adam(
@@ -129,6 +138,7 @@ if __name__ == '__main__':
           optimizer=optimizer,
           scheduler=scheduler,
           device=device,
+          ngpus=ngpus,
           nepoches=args.nepoches,
           log_interval=args.log_interval,
           log_dir=args.log_dir,
