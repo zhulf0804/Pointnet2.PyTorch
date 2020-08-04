@@ -39,5 +39,9 @@ def evaluate_cls(model_id, data_root, checkpoint, npoints, dims=6, nclasses=40):
     print('Corr: {}, Seen: {}, Acc: {:.4f}'.format(total_correct, total_seen, total_correct / float(total_seen)))
 
 
+def evaluate_seg(model_id, data_root, checkpoint, npoints, dims=6, nclasses=50):
+    pass
+
+
 if __name__ == '__main__':
     fire.Fire()

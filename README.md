@@ -44,10 +44,25 @@ Point Sets in a Metric Space]()[NIPS 2017].
 
 
 ## Part Segmentation
-- Start
-- Metrics
-- Dataset
-- Performance
+- **Start**
+    - Dataset: [ShapeNet](), download it from [Official Site]() or [Baidu Disk]().
+    - Train
+        ```
+        python train_part_seg.py --data_root your_data_root --log_dir your_log_dir
+
+        eg.
+        python train_part_seg.py --data_root /root/shapenetcore_partanno_segmentation_benchmark_v0_normal --log_dir seg_ssg --batch_size 64
+        ```
+    - Evaluate
+    
+        ```
+        python evaluate.py evaluate_seg model data_root checkpoint npoints
+        
+        eg.
+        python evaluate.py evaluate_seg pointnet2_seg_ssg /root/shapenetcore_partanno_segmentation_benchmark_v0_normal checkpoints/pointnet2_seg_250.pth 2500
+        ```
+- **Performance**(the **first row** is the results reported in Paper, the **following rows** are results reported from this repo.)
+
 
 ## Reference
 
