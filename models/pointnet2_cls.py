@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import sys
-sys.path.append('/root/code/PointNet2.PyTorch')
 from utils.set_abstraction import PointNet_SA_Module, PointNet_SA_Module_MSG
 
 
@@ -22,35 +20,6 @@ class pointnet2_cls_ssg(nn.Module):
 
     def forward(self, xyz, points):
         batchsize = xyz.shape[0]
-        #in_channels = xyz.shape[-1]
-        #if points is not None:
-        #    in_channels += points.shape[-1]
-        '''
-        new_xyz, new_points, grouped_inds = pointnet_sa_module(xyz,
-                                                               points,
-                                                               M=512,
-                                                               radius=0.2,
-                                                               K=32,
-                                                               in_channels=in_channels,
-                                                               mlp=[64, 64, 128],
-                                                               group_all=False)
-        new_xyz, new_points, grouped_inds = pointnet_sa_module(new_xyz,
-                                                               new_points,
-                                                               M=128,
-                                                               radius=0.4,
-                                                               K=64,
-                                                               in_channels=131,
-                                                               mlp=[128, 128, 256],
-                                                               group_all=False)
-        new_xyz, new_points, grouped_inds = pointnet_sa_module(new_xyz,
-                                                               new_points,
-                                                               M=None,
-                                                               radius=None,
-                                                               K=None,
-                                                               in_channels=259,
-                                                               mlp=[256, 512, 1024],
-                                                               group_all=True)
-        '''
         new_xyz, new_points = self.pt_sa1(xyz, points)
         new_xyz, new_points = self.pt_sa2(new_xyz, new_points)
         new_xyz, new_points = self.pt_sa3(new_xyz, new_points)

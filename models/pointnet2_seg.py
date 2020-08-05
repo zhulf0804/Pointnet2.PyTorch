@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import sys
-sys.path.append('/root/code/PointNet2.PyTorch')
 from utils.set_abstraction import PointNet_SA_Module, PointNet_SA_Module_MSG
 from utils.feature_propagation import PointNet_FP_Module
 

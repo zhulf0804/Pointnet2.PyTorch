@@ -1,31 +1,8 @@
 import torch
 import torch.nn as nn
-import sys
-sys.path.append('/root/code/PointNet2.PyTorch')
 from utils.sampling import fps
 from utils.grouping import ball_query
 from utils.common import gather_points
-
-
-class PointNet(nn.Module):
-    def __init__(self, in_channels, mlp, bn, pooling):
-        super(PointNet, self).__init__()
-        self.pooling = pooling
-        self.backbone = nn.Sequential()
-        for i, out_channels in enumerate(mlp):
-            self.backbone.add_module('Conv{}'.format(i), nn.Conv2d(in_channels, out_channels, 1, stride=1, padding=0, bias=False))
-            if bn:
-                self.backbone.add_module('Bn{}'.format(i), nn.BatchNorm2d(out_channels))
-            self.backbone.add_module('Relu{}'.format(i), nn.ReLU())
-            in_channels = out_channels
-
-    def forward(self, x):
-        x = self.backbone(x.float())
-        if self.pooling == 'avg':
-            x = torch.mean(x, dim=2, keepdim=True)
-        else:
-            x = torch.max(x, dim=2, keepdim=True)[0]
-        return x
 
 
 def sample_and_group(xyz, points, M, radius, K, use_xyz=True):
@@ -76,18 +53,6 @@ def sample_and_group_all(xyz, points, use_xyz=True):
     else:
         new_points = grouped_xyz
     return new_xyz, new_points, grouped_inds, grouped_xyz
-
-
-def pointnet_sa_module(xyz, points, M, radius, K, in_channels, mlp, group_all, bn=True, pooling='max', use_xyz=True):
-    device = torch.device('cuda')
-    pointnet_module = PointNet(in_channels, mlp, bn, pooling).to(device)
-    if group_all:
-        new_xyz, new_points, grouped_inds, grouped_xyz = sample_and_group_all(xyz, points, use_xyz)
-    else:
-        new_xyz, new_points, grouped_inds, grouped_xyz = sample_and_group(xyz, points, M, radius, K, use_xyz)
-    new_points = new_points.permute(0, 3, 2, 1)
-    new_points = torch.squeeze(pointnet_module(new_points), 2).permute(0, 2, 1)
-    return new_xyz, new_points, grouped_inds
 
 
 class PointNet_SA_Module(nn.Module):
@@ -185,18 +150,6 @@ class PointNet_SA_Module_MSG(nn.Module):
             new_points = new_points.permute(0, 2, 1).contiguous()
             new_points_all.append(new_points)
         return new_xyz, torch.cat(new_points_all, dim=-1)
-
-
-def pointnet_sa_module_msg(xyz, points, M, radius_list, K_list, in_channels, mlp_list, bn=True, pooling='max', use_xyz=True):
-    new_xyz = gather_points(xyz, fps(xyz, M))
-    new_points_list = []
-    for i in range(len(radius_list)):
-        mlp, radius, K = mlp_list[i], radius_list[i], K_list[i]
-        print(mlp, radius, K, xyz.shape, points.shape)
-        new_xyz, new_points, grouped_inds = pointnet_sa_module(xyz, points, M, radius, K, in_channels, mlp, bn, pooling, use_xyz)
-        new_points_list.append(new_points)
-    new_points_cat = torch.cat(new_points_list, dim=-1)
-    return new_xyz, new_points_cat
 
 
 if __name__ == '__main__':

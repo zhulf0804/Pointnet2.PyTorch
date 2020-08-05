@@ -8,43 +8,45 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from models.pointnet2_seg import pointnet2_seg_ssg, seg_loss
 from data.ShapeNet import ShapeNet
+from utils.IoU import cal_accuracy_iou
 
 
-def train_one_epoch(train_loader, model, loss_func, optimizer, device):
-    losses, total_seen, total_correct = [], 0, 0
-    for data, labels in train_loader:
+def train_one_epoch(train_loader, seg_classes, model, loss_func, optimizer, device, pt):
+    losses, preds, labels = [], [], []
+    for data, label in train_loader:
+        labels.append(label)
         optimizer.zero_grad()  # Important
-        labels = labels.long().to(device)
+        label = label.long().to(device)
         xyz, points = data[:, :, :3], data[:, :, 3:]
         pred = model(xyz.to(device), points.to(device))
-        loss = loss_func(pred, labels)
+        loss = loss_func(pred, label)
 
         loss.backward()
         optimizer.step()
         pred = torch.max(pred, dim=1)[1]
-        total_correct += torch.sum(pred == labels)
-        total_seen += (xyz.shape[0] * xyz.shape[1])
+        preds.append(pred.cpu().detach().numpy())
         losses.append(loss.item())
-    return np.mean(losses), total_correct, total_seen, total_correct / float(total_seen)
+    iou, acc = cal_accuracy_iou(np.concatenate(preds, axis=0), np.concatenate(labels, axis=0), seg_classes, pt)
+    return np.mean(losses), iou, acc
 
 
-def test_one_epoch(test_loader, model, loss_func, device):
-    losses, total_seen, total_correct = [], 0, 0
-    for data, labels in test_loader:
-        labels = labels.long().to(device)
+def test_one_epoch(test_loader, seg_classes, model, loss_func, device):
+    losses, preds, labels = [], [], []
+    for data, label in test_loader:
+        labels.append(label)
+        label = label.long().to(device)
         xyz, points = data[:, :, :3], data[:, :, 3:]
         with torch.no_grad():
             pred = model(xyz.to(device), points.to(device))
-            loss = loss_func(pred, labels)
-
+            loss = loss_func(pred, label)
             pred = torch.max(pred, dim=1)[1]
-            total_correct += torch.sum(pred == labels)
-            total_seen += (xyz.shape[0] * xyz.shape[1])
+            preds.append(pred.cpu().detach().numpy())
             losses.append(loss.item())
-    return np.mean(losses), total_correct, total_seen, total_correct / float(total_seen)
+    iou, acc = cal_accuracy_iou(np.concatenate(preds, axis=0), np.concatenate(labels, axis=0), seg_classes)
+    return np.mean(losses), iou, acc
 
 
-def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, device, ngpus, nepoches, log_interval, log_dir, checkpoint_interval):
+def train(train_loader, test_loader, seg_classes, model, loss_func, optimizer, scheduler, device, ngpus, nepoches, log_interval, log_dir, checkpoint_interval):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     checkpoint_dir = os.path.join(log_dir, 'checkpoints')
@@ -58,22 +60,27 @@ def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, dev
     for epoch in range(nepoches):
         if epoch % checkpoint_interval == 0:
             if ngpus > 1:
-                torch.save(model.module.state_dict(), os.path.join(checkpoint_dir, "pointnet2_cls_%d.pth" % epoch))
+                torch.save(model.module.state_dict(), os.path.join(checkpoint_dir, "pointnet2_seg_%d.pth" % epoch))
             else:
-                torch.save(model.state_dict(), os.path.join(checkpoint_dir, "pointnet2_cls_%d.pth" % epoch))
+                torch.save(model.state_dict(), os.path.join(checkpoint_dir, "pointnet2_seg_%d.pth" % epoch))
             model.eval()
             lr = optimizer.state_dict()['param_groups'][0]['lr']
-            loss, total_correct, total_seen, acc = test_one_epoch(test_loader, model, loss_func, device)
-            print('Test Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, total_correct, total_seen, acc))
+            loss, iou, acc = test_one_epoch(test_loader, seg_classes, model, loss_func, device)
+            print('Test  Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, IoU: {:.4f}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, iou, acc))
             writer.add_scalar('test loss', loss, epoch)
+            writer.add_scalar('test iou', iou, epoch)
             writer.add_scalar('test acc', acc, epoch)
         model.train()
-        loss, total_correct, total_seen, acc = train_one_epoch(train_loader, model, loss_func, optimizer, device)
+        pt = False
+        if epoch % log_interval == 0:
+            pt = True
+        loss, iou, acc = train_one_epoch(train_loader, seg_classes, model, loss_func, optimizer, device, pt)
         writer.add_scalar('train loss', loss, epoch)
+        writer.add_scalar('train iou', iou, epoch)
         writer.add_scalar('train acc', acc, epoch)
         if epoch % log_interval == 0:
             lr = optimizer.state_dict()['param_groups'][0]['lr']
-            print('Train Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, total_correct, total_seen, acc))
+            print('Train Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, IoU: {:.4f}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, iou, acc))
         scheduler.step()
 
 
@@ -108,6 +115,8 @@ if __name__ == '__main__':
     shapenet_test = ShapeNet(data_root=args.data_root, split='test', npoints=args.npoints)
     train_loader = DataLoader(dataset=shapenet_train, batch_size=args.batch_size // ngpus, shuffle=True, num_workers=4)
     test_loader = DataLoader(dataset=shapenet_test, batch_size=args.batch_size // ngpus, shuffle=False, num_workers=4)
+    print('Train set: {}'.format(len(shapenet_train)))
+    print('Test set: {}'.format(len(shapenet_test)))
 
     Model = Models[args.model]
     model = Model(6, args.nclasses)
@@ -132,6 +141,7 @@ if __name__ == '__main__':
     tic = time.time()
     train(train_loader=train_loader,
           test_loader=test_loader,
+          seg_classes=shapenet_train.seg_classes,
           model=model,
           loss_func=loss,
           optimizer=optimizer,

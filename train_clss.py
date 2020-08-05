@@ -57,6 +57,7 @@ def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, dev
 
     for epoch in range(nepoches):
         if epoch % checkpoint_interval == 0:
+            print('='*40)
             if ngpus > 1:
                 torch.save(model.module.state_dict(), os.path.join(checkpoint_dir, "pointnet2_cls_%d.pth" % epoch))
             else:
@@ -64,7 +65,7 @@ def train(train_loader, test_loader, model, loss_func, optimizer, scheduler, dev
             model.eval()
             lr = optimizer.state_dict()['param_groups'][0]['lr']
             loss, total_correct, total_seen, acc = test_one_epoch(test_loader, model, loss_func, device)
-            print('Test Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, total_correct, total_seen, acc))
+            print('Test  Epoch: {} / {}, lr: {:.6f}, Loss: {:.2f}, Corr: {}, Total: {}, Acc: {:.4f}'.format(epoch, nepoches, lr, loss, total_correct, total_seen, acc))
             writer.add_scalar('test loss', loss, epoch)
             writer.add_scalar('test acc', acc, epoch)
         model.train()
@@ -109,6 +110,8 @@ if __name__ == '__main__':
     modelnet40_test = ModelNet40(data_root=args.data_root, split='test', npoints=args.npoints)
     train_loader = DataLoader(dataset=modelnet40_train, batch_size=args.batch_size // ngpus, shuffle=True, num_workers=4)
     test_loader = DataLoader(dataset=modelnet40_test, batch_size=args.batch_size // ngpus, shuffle=False, num_workers=4)
+    print('Train set: {}'.format(len(modelnet40_train)))
+    print('Test set: {}'.format(len(modelnet40_test)))
 
     Model = Models[args.model]
     model = Model(6, args.nclasses)
