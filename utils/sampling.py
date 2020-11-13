@@ -17,7 +17,7 @@ def fps(xyz, M):
     for i in range(M):
         centroids[:, i] = inds
         cur_point = xyz[batchlists, inds, :] # (B, 3)
-        cur_dist = torch.squeeze(get_dists(torch.unsqueeze(cur_point, 1), xyz))
+        cur_dist = torch.squeeze(get_dists(torch.unsqueeze(cur_point, 1), xyz), dim=1)
         dists[cur_dist < dists] = cur_dist[cur_dist < dists]
         inds = torch.max(dists, dim=1)[1]
     return centroids
