@@ -7,3 +7,4 @@ checkpoints/
 data/ILSVRC2012_img_val
 model/.DS_Store
 .DS_Store
+work_dirs/

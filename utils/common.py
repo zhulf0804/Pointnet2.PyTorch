@@ -33,3 +33,10 @@ def gather_points(points, inds):
     repeat_shape[0] = 1
     batchlists = torch.arange(0, B, dtype=torch.long).to(device).reshape(inds_shape).repeat(repeat_shape)
     return points[batchlists, inds, :]
+
+
+def setup_seed(seed):
+    torch.backends.cudnn.deterministic = True
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)

@@ -44,7 +44,45 @@ Point Sets in a Metric Space]()[NIPS 2017].
     | PointNet2_SSG | 1024 | ✓ | **256** | **90.8** |
     | PointNet2_SSG | 1024 | ✗ | 1024 | 91.8 |
     | PointNet2_SSG | 1024 | ✓ | 1204 | **91.9** |
-
+    
+- **Train Your own Dataset**    
+    - Prepare the dataset(n classes) in the `ModelNet40` structure
+        ```
+        CustomData(dir)
+            |- class1(dir)
+                | - class1_name11.txt
+                | - class1_name12.txt
+                ...
+            |- class2(dir)
+                | - class2_name21.txt
+                | - class2_name22.txt
+                ...
+            |- classn(dir)
+            |- shape_names.txt
+                | - class1(line1)
+                | - class2(line2)
+                | - ...
+                | - classn(linen)
+            |- train.txt
+                | - class1_name11
+                | - class2_name21
+                | - class2_name22
+                | - ...
+                | - classn_namen1
+            |- test.txt
+                | - class1_name12
+                | - class2_name22
+                | - ...
+                | - classn_namen2
+        ```
+    - **Start to train**
+        ```
+        python train_custom_cls.py --data_root your_datapath/CustomData --nclasses 2 --npoints 2048
+        ```
+    - **Start to evaluate**
+        ```
+        python evaluate_custom.py evaluate_cls pointnet2_cls_ssg your_datapath/CustomData work_dirs/checkpoints/pointnet2_cls_250.pth 2
+        ```
 
 ## Part Segmentation
 - **Start**
